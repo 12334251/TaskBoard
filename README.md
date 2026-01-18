@@ -1,50 +1,94 @@
-# Welcome to your Expo app 👋
+# 📋 Task Management Board (React Native)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A real-time Kanban-style task management application built with **React Native (Expo)** and **Supabase**. This project allows users to create boards, manage tasks with drag-and-drop, invite collaborators, and see real-time updates across devices.
 
-## Get started
+## 🚀 Features
 
-1. Install dependencies
+- **Authentication:** Secure email/password login via Supabase Auth.
+- **Kanban Boards:** Create multiple project boards.
+- **Drag & Drop:** Smoothly move tasks between columns (Todo, In Progress, Done).
+- **Real-Time Sync:** Instant updates for tasks and board members using Supabase Realtime.
+- **Collaboration:** Invite users by email to join your board.
+- **User Presence:** See who is currently viewing the board and editing tasks.
+- **Optimistic UI:** Instant feedback for actions (like moving tasks) before server confirmation.
+- **Offline First:** React Query caching for seamless experience.
 
-   ```bash
-   npm install
-   ```
+## 🛠 Tech Stack
 
-2. Start the app
+### Frontend (Mobile)
 
-   ```bash
-   npx expo start
-   ```
+- **React Native / Expo:** The core framework for cross-platform mobile development.
+- **Expo Router:** File-based routing for easy navigation.
+- **TypeScript:** Static typing for better code quality and developer experience.
+- **React Query (TanStack Query):** Powerful data fetching, caching, and state management.
+- **Reanimated & Gesture Handler:** For high-performance animations and touch handling (drag & drop).
+- **@shopify/flash-list:** Fast list rendering for better performance than standard FlatList.
+- **Tailwind CSS (via NativeWind):** Utility-first styling for React Native components.
 
-In the output, you'll find options to open the app in a
+### Backend & Database
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- **Supabase:** An open-source Firebase alternative providing:
+  - **PostgreSQL:** The primary relational database.
+  - **Auth:** User management and RLS (Row Level Security).
+  - **Realtime:** Broadcasting database changes via WebSockets.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🏃‍♂️ How to Run Locally
 
-## Get a fresh project
+### 1. Prerequisites
 
-When you're ready, run:
+- Node.js installed.
+- Expo CLI installed (`npm install -g expo-cli`).
+- A [Supabase](https://supabase.com/) project set up.
 
-```bash
-npm run reset-project
+### 2. Database Setup (Supabase SQL)
+
+Run the following SQL in your Supabase SQL Editor to create tables and enable realtime:
+
+```sql
+-- Create Tables
+create table profiles (
+  id uuid references auth.users not null primary key,
+  email text unique,
+  full_name text
+);
+
+create table boards (
+  id uuid default gen_random_uuid() primary key,
+  title text not null,
+  owner_id uuid references profiles(id) not null,
+  created_at timestamptz default now()
+);
+
+create table board_members (
+  board_id uuid references boards(id) on delete cascade,
+  user_id uuid references profiles(id),
+  status text default 'pending', -- pending, accepted
+  primary key (board_id, user_id)
+);
+
+create table tasks (
+  id uuid default gen_random_uuid() primary key,
+  board_id uuid references boards(id) on delete cascade,
+  title text not null,
+  description text,
+  status text default 'TODO', -- TODO, IN_PROGRESS, DONE
+  priority text default 'MEDIUM', -- LOW, MEDIUM, HIGH
+  assignee_id uuid references profiles(id),
+  position serial, -- For ordering
+  due_date timestamptz,
+  created_at timestamptz default now()
+);
+
+create table notifications (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id),
+  type text not null, -- INVITE, etc.
+  content text,
+  is_read boolean default false,
+  meta_data jsonb,
+  created_at timestamptz default now()
+);
+
+-- Enable Realtime
+alter publication supabase_realtime add table boards, board_members, tasks, notifications;
 ```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.

@@ -42,7 +42,7 @@ export const useBoards = () => {
     enabled: !!userId,
   });
 
-  // 3. Realtime Subscription
+  // Realtime Subscription
   useEffect(() => {
     if (!userId) return;
 
@@ -65,8 +65,6 @@ export const useBoards = () => {
 
   return {
     ...query,
-    // FIX 2: Override isLoading.
-    // It is loading if Auth is checking OR if the Query is fetching.
     isLoading: isAuthLoading || query.isLoading,
   };
 };
