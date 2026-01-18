@@ -32,63 +32,51 @@ A real-time Kanban-style task management application built with **React Native (
   - **Auth:** User management and RLS (Row Level Security).
   - **Realtime:** Broadcasting database changes via WebSockets.
 
-## 🏃‍♂️ How to Run Locally
+### Testing Framework
 
-### 1. Prerequisites
+- **Jest:** JavaScript testing framework.
+- **React Native Testing Library (RNTL):** Lightweight testing utilities to test React Native components.
+- **Jest Expo:** Preset for configuring Jest in an Expo environment.
 
-- Node.js installed.
-- Expo CLI installed (`npm install -g expo-cli`).
-- A [Supabase](https://supabase.com/) project set up.
+## ⚠️ Important: Development Build Required
 
-### 2. Database Setup (Supabase SQL)
+This project uses **native libraries** (`react-native-mmkv` and `react-native-keyboard-controller`) that are not supported in the standard **Expo Go** app.
 
-Run the following SQL in your Supabase SQL Editor to create tables and enable realtime:
+You **cannot** run this project using `npx expo start` with the Expo Go app. You must use a **Development Build**.
 
-```sql
--- Create Tables
-create table profiles (
-  id uuid references auth.users not null primary key,
-  email text unique,
-  full_name text
-);
+# For Android
 
-create table boards (
-  id uuid default gen_random_uuid() primary key,
-  title text not null,
-  owner_id uuid references profiles(id) not null,
-  created_at timestamptz default now()
-);
+npx expo run:android
 
-create table board_members (
-  board_id uuid references boards(id) on delete cascade,
-  user_id uuid references profiles(id),
-  status text default 'pending', -- pending, accepted
-  primary key (board_id, user_id)
-);
+# For iOS
 
-create table tasks (
-  id uuid default gen_random_uuid() primary key,
-  board_id uuid references boards(id) on delete cascade,
-  title text not null,
-  description text,
-  status text default 'TODO', -- TODO, IN_PROGRESS, DONE
-  priority text default 'MEDIUM', -- LOW, MEDIUM, HIGH
-  assignee_id uuid references profiles(id),
-  position serial, -- For ordering
-  due_date timestamptz,
-  created_at timestamptz default now()
-);
+npx expo run:ios
 
-create table notifications (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references profiles(id),
-  type text not null, -- INVITE, etc.
-  content text,
-  is_read boolean default false,
-  meta_data jsonb,
-  created_at timestamptz default now()
-);
+## 🧪 Testing
 
--- Enable Realtime
-alter publication supabase_realtime add table boards, board_members, tasks, notifications;
+This project employs **Unit and Integration Testing** to ensure reliability across authentication, data fetching, and user interactions.
+
+### Testing Setup
+
+Tests are located in `__tests__` directories adjacent to the features they test. We use `jest.mock()` extensively to isolate components from external services like Supabase, Expo Router, and Device Storage.
+
+- **Mocking:** External dependencies (Supabase, Navigation, Async Storage) are mocked to prevent network calls during tests.
+- **Environment:** Tests run in a Node.js environment via Jest, simulating the React Native runtime.
+
+### How to Run Tests
+
+Run the following commands in your terminal:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode (interactive)
+npm test -- --watch
+
+# Run a specific test file
+npm test -- BoardListScreen
+
+# Clear Jest cache (if you encounter strange errors)
+npx jest --clearCache
 ```
