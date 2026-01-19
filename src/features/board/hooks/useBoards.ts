@@ -12,7 +12,6 @@ export type Board = {
 export const useBoards = () => {
   const queryClient = useQueryClient();
   const [userId, setUserId] = useState<string | null>(null);
-
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   // Get the current User ID
@@ -25,7 +24,7 @@ export const useBoards = () => {
     });
   }, []);
 
-  // Fetch Boards (Only runs when userId is set)
+  // Fetch Boards
   const query = useQuery({
     queryKey: ["boards", userId],
     queryFn: async () => {
@@ -42,7 +41,7 @@ export const useBoards = () => {
     enabled: !!userId,
   });
 
-  // Realtime Subscription
+  // Realtime Subscription (Already handles DELETE events via event: "*")
   useEffect(() => {
     if (!userId) return;
 
@@ -52,7 +51,7 @@ export const useBoards = () => {
         "postgres_changes",
         { event: "*", schema: "public", table: "boards" },
         (payload) => {
-          console.log("Change received!", payload);
+          // This will automatically refetch when a board is deleted
           queryClient.invalidateQueries({ queryKey: ["boards", userId] });
         },
       )
@@ -66,5 +65,6 @@ export const useBoards = () => {
   return {
     ...query,
     isLoading: isAuthLoading || query.isLoading,
+    userId, // <--- EXPORT THIS
   };
 };

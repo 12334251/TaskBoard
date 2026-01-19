@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons"; // Import Icon for the delete button
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
@@ -21,7 +22,14 @@ export const BoardListScreen = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const { data: boards, isLoading, isFetching, error, refetch } = useBoards();
+  const {
+    data: boards,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    userId,
+  } = useBoards();
 
   const queryClient = useQueryClient();
   const isNavigatingRef = useRef(false);
@@ -60,6 +68,24 @@ export const BoardListScreen = () => {
     },
   });
 
+  const deleteBoardMutation = useMutation({
+    mutationFn: async (boardId: string) => {
+      const { error } = await supabase
+        .from("boards")
+        .delete()
+        .eq("id", boardId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
+      Alert.alert("Success", "Board deleted successfully");
+    },
+    onError: (err) => {
+      Alert.alert("Error", "Failed to delete board: " + err.message);
+    },
+  });
+
   const onRefresh = async () => {
     setRefreshing(true);
     await refetch();
@@ -81,6 +107,21 @@ export const BoardListScreen = () => {
     if (!isInputValid) return;
     setIsCreating(true);
     createBoardMutation.mutate(newBoardTitle);
+  };
+
+  const handleDeleteBoard = (boardId: string) => {
+    Alert.alert(
+      "Delete Board",
+      "Are you sure you want to delete this board? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteBoardMutation.mutate(boardId),
+        },
+      ],
+    );
   };
 
   const handleBoardPress = (boardId: string) => {
@@ -147,17 +188,33 @@ export const BoardListScreen = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => handleBoardPress(item.id)}
-          >
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardDate}>
-              {new Date(item.created_at).toLocaleDateString()}
-            </Text>
-          </TouchableOpacity>
-        )}
+        renderItem={({ item }) => {
+          const isOwner = item.owner_id === userId;
+
+          return (
+            <View style={styles.cardContainer}>
+              <TouchableOpacity
+                style={styles.cardContent}
+                onPress={() => handleBoardPress(item.id)}
+              >
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cardDate}>
+                  {new Date(item.created_at).toLocaleDateString()}
+                </Text>
+              </TouchableOpacity>
+
+              {isOwner && (
+                <TouchableOpacity
+                  onPress={() => handleDeleteBoard(item.id)}
+                  style={styles.deleteButton}
+                  hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                >
+                  <Ionicons name="trash-outline" size={22} color="#FF3B30" />
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        }}
         ListEmptyComponent={
           !isLoading && !isFetching ? (
             <Text style={styles.emptyText}>No boards yet. Create one!</Text>
@@ -217,7 +274,35 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 2,
   },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   cardTitle: { fontSize: 18, fontWeight: "600", marginBottom: 4 },
   cardDate: { color: "#888", fontSize: 12 },
   emptyText: { textAlign: "center", marginTop: 50, color: "#888" },
+  cardContainer: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  cardContent: {
+    flex: 1,
+    padding: 20,
+  },
+  deleteButton: {
+    padding: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderLeftWidth: 1,
+    borderLeftColor: "#f0f0f0",
+  },
 });

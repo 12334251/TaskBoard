@@ -1,7 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated from "react-native-reanimated";
-import { scheduleOnRN } from "react-native-worklets";
+import Animated, { runOnJS } from "react-native-reanimated"; // Use runOnJS
 
 import { useDragDrop } from "../../../context/DragDropContext";
 import { BoardUser } from "../hooks/useBoardPresence";
@@ -33,15 +32,14 @@ export const TaskCard = ({
       dragX.value = event.absoluteX;
       dragY.value = event.absoluteY;
 
-      // FIX: Pass arguments as the 2nd parameter
-      scheduleOnRN(startDrag, task);
+      runOnJS(startDrag)(task);
     })
     .onUpdate((event) => {
       dragX.value = event.absoluteX;
       dragY.value = event.absoluteY;
     })
     .onEnd((event) => {
-      scheduleOnRN(endDrag, event.absoluteX, event.absoluteY);
+      runOnJS(endDrag)(event.absoluteX, event.absoluteY);
     });
 
   const CardContent = (

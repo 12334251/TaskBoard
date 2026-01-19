@@ -24,7 +24,6 @@ type DragDropContextType = {
     callback: (item: any) => void,
   ) => void;
   unregisterDropZone: (id: string) => void;
-
   dragX: SharedValue<number>;
   dragY: SharedValue<number>;
 };
@@ -74,8 +73,6 @@ export const DragDropProvider = ({
       zone.callback(activeDragItem);
     }
     setActiveDragItem(null);
-    dragX.value = -9999;
-    dragY.value = -9999;
   };
 
   const overlayStyle = useAnimatedStyle(() => {

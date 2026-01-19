@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
+import { Alert } from "react-native";
 import { supabase } from "../../../api/supabase";
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
@@ -56,12 +57,14 @@ export const useTasks = (boardId: string) => {
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "*", // Listen to INSERT, UPDATE, DELETE
           schema: "public",
           table: "tasks",
           filter: `board_id=eq.${boardId}`,
         },
         (payload) => {
+          console.log("Realtime change detected:", payload);
+          // Invalidate queries to refresh the list automatically for other users
           queryClient.invalidateQueries({ queryKey });
         },
       )
@@ -86,7 +89,7 @@ export const useTasks = (boardId: string) => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 
-  // UPDATE TASK
+  // UPDATE TASK (Optimistic Update)
   const updateTask = useMutation({
     mutationFn: async ({
       id,
@@ -127,13 +130,33 @@ export const useTasks = (boardId: string) => {
     },
   });
 
-  // DELETE TASK
+  // DELETE TASK (Optimistic Update)
   const deleteTask = useMutation({
     mutationFn: async (taskId: string) => {
       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onMutate: async (taskId) => {
+      await queryClient.cancelQueries({ queryKey });
+
+      const previousTasks = queryClient.getQueryData<Task[]>(queryKey);
+
+      queryClient.setQueryData<Task[]>(queryKey, (old) => {
+        return old ? old.filter((task) => task.id !== taskId) : [];
+      });
+
+      return { previousTasks };
+    },
+    onError: (err, taskId, context) => {
+      console.error("Delete failed:", err);
+      if (context?.previousTasks) {
+        queryClient.setQueryData(queryKey, context.previousTasks);
+        Alert.alert("Error", "Could not delete task. Check permissions.");
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
   });
 
   return {

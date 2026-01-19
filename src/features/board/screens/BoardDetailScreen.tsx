@@ -1,7 +1,8 @@
-import { Stack } from "expo-router";
-import { useState } from "react";
+import { Stack, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -9,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { supabase } from "../../../api/supabase";
 import { DragDropProvider } from "../../../context/DragDropContext";
 import { BoardColumn } from "../components/BoardColumn";
 import { InviteMemberModal } from "../components/InviteMemberModal";
@@ -18,6 +20,46 @@ import { Task, TaskPriority, useTasks } from "../hooks/useTasks";
 
 export const BoardDetailScreen = ({ boardId }: { boardId: string }) => {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!boardId) return;
+
+    const channel = supabase
+      .channel(`board_life_check:${boardId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "boards",
+          filter: `id=eq.${boardId}`,
+        },
+        () => {
+          Alert.alert(
+            "Board Deleted",
+            "This board has been deleted by the owner.",
+            [
+              {
+                text: "OK",
+                onPress: () => {
+                  if (router.canGoBack()) {
+                    router.dismissAll();
+                  }
+                  router.replace("/(main)");
+                },
+              },
+            ],
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [boardId, router]);
+
   const {
     data: tasks,
     isLoading,
@@ -26,7 +68,6 @@ export const BoardDetailScreen = ({ boardId }: { boardId: string }) => {
     deleteTask,
   } = useTasks(boardId);
 
-  // Get Active Users & The Setter Function for Editing
   const { activeUsers, setEditingTask } = useBoardPresence(boardId);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -90,7 +131,6 @@ export const BoardDetailScreen = ({ boardId }: { boardId: string }) => {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <Stack.Screen options={{ title: "Board" }} />
 
-        {/* --- PRESENCE INDICATOR BAR --- */}
         <View style={styles.presenceBar}>
           <Text style={styles.presenceLabel}>Active:</Text>
           <View style={styles.avatarRow}>
@@ -99,7 +139,6 @@ export const BoardDetailScreen = ({ boardId }: { boardId: string }) => {
                 <Text style={styles.avatarText}>
                   {u.email?.substring(0, 2).toUpperCase()}
                 </Text>
-                {/* Green dot for online status */}
                 <View style={styles.onlineDot} />
               </View>
             ))}
